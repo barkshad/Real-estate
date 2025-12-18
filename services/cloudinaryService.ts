@@ -10,7 +10,7 @@ export async function uploadToCloudinary(file: File): Promise<string> {
   formData.append('file', file);
   formData.append('upload_preset', uploadPreset);
   
-  // Determine if it's a video or image
+  // Determine if it's a video or image to ensure proper resource type processing
   const resourceType = file.type.startsWith('video/') ? 'video' : 'image';
   
   try {

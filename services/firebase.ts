@@ -3,14 +3,14 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// Replace these placeholders with your actual Firebase project config
+// Live Firebase project configuration for real-d9183
 const firebaseConfig = {
-  apiKey: "YOUR_FIREBASE_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBOM6N_W4AF7p8WFFZSOplpdKvmnU_zOEQ",
+  authDomain: "real-d9183.firebaseapp.com",
+  projectId: "real-d9183",
+  storageBucket: "real-d9183.firebasestorage.app",
+  messagingSenderId: "87995677982",
+  appId: "1:87995677982:web:2bd4ec55775bb53d381d0f"
 };
 
 const app = initializeApp(firebaseConfig);
