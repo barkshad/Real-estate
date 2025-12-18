@@ -134,9 +134,10 @@ const App: React.FC = () => {
               path="/dashboard" 
               element={user ? <Dashboard user={user} /> : <Navigate to="/login" />} 
             />
+            {/* Admin route now handles its own verification via PIN "12345" */}
             <Route 
               path="/admin" 
-              element={user?.role === 'admin' ? <AdminDashboard user={user} /> : <Navigate to="/" />} 
+              element={<AdminDashboard user={user} />} 
             />
           </Routes>
         </main>

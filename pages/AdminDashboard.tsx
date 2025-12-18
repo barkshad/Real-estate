@@ -10,6 +10,10 @@ interface AdminDashboardProps {
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const navigate = useNavigate();
+  const [isVerified, setIsVerified] = useState(false);
+  const [accessCode, setAccessCode] = useState('');
+  const [authError, setAuthError] = useState(false);
+  
   const [activeTab, setActiveTab] = useState<'overview' | 'properties' | 'inquiries' | 'settings'>('overview');
   const [properties, setProperties] = useState<Property[]>([]);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
@@ -17,28 +21,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // SECURITY: Only allow admins. In a real app, you'd check a custom claim or DB role.
-    // For this demo, we assume the user accessing /admin needs to be logged in and we check role.
-    if (!user || user.role !== 'admin') {
-      // Mocking admin role for demo purposes if user is logged in
-      if (!user) {
-        navigate('/login');
-        return;
-      }
+    // If verified, setup listeners
+    if (isVerified) {
+      const unsubProperties = firebaseService.subscribeToListings(setProperties);
+      const unsubInquiries = firebaseService.subscribeToAllInquiries(setInquiries);
+      const unsubSettings = firebaseService.subscribeToSettings(setSettings);
+
+      setLoading(false);
+
+      return () => {
+        unsubProperties();
+        unsubInquiries();
+        unsubSettings();
+      };
+    } else {
+      setLoading(false);
     }
+  }, [isVerified]);
 
-    const unsubProperties = firebaseService.subscribeToListings(setProperties);
-    const unsubInquiries = firebaseService.subscribeToAllInquiries(setInquiries);
-    const unsubSettings = firebaseService.subscribeToSettings(setSettings);
-
-    setLoading(false);
-
-    return () => {
-      unsubProperties();
-      unsubInquiries();
-      unsubSettings();
-    };
-  }, [user, navigate]);
+  const handleVerify = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (accessCode === '12345') {
+      setIsVerified(true);
+      setAuthError(false);
+    } else {
+      setAuthError(true);
+      setAccessCode('');
+    }
+  };
 
   const handleUpdateSettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,10 +57,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       await firebaseService.updateSettings(settings);
       alert("Settings updated successfully!");
     } catch (err) {
-      alert("Error updating settings.");
+      alert("Error updating settings. Ensure your Firebase project permissions allow admin writes.");
     }
   };
 
+  // 1. PIN Verification Screen
+  if (!isVerified) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-slate-900 w-full max-w-md p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-2xl text-center">
+          <div className="w-16 h-16 bg-blue-600 rounded-2xl mx-auto flex items-center justify-center text-white text-3xl font-bold mb-6 shadow-xl shadow-blue-500/30">H</div>
+          <h1 className="text-2xl font-black dark:text-white mb-2">Admin Access</h1>
+          <p className="text-slate-500 text-sm mb-8">Please enter the security PIN to unlock the control center.</p>
+          
+          <form onSubmit={handleVerify} className="space-y-4">
+            <div className="relative">
+              <input 
+                type="password" 
+                value={accessCode}
+                onChange={(e) => setAccessCode(e.target.value)}
+                placeholder="Enter PIN"
+                className={`w-full bg-slate-100 dark:bg-slate-800 px-6 py-4 rounded-2xl text-center text-xl font-bold tracking-[0.5em] focus:ring-2 focus:ring-blue-500 outline-none dark:text-white border-2 transition-colors ${authError ? 'border-red-500' : 'border-transparent'}`}
+                autoFocus
+              />
+              {authError && <p className="text-red-500 text-xs font-bold mt-2 animate-pulse">Invalid access code. Please try again.</p>}
+            </div>
+            <button 
+              type="submit"
+              className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/30 transform active:scale-95"
+            >
+              Unlock Console
+            </button>
+          </form>
+          
+          <button 
+            onClick={() => navigate('/')}
+            className="mt-6 text-slate-400 hover:text-slate-600 text-sm font-medium transition-colors"
+          >
+            Return to Homepage
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Main Dashboard (if verified)
   if (loading) return <div className="h-screen flex items-center justify-center dark:bg-slate-950 text-white">Loading Command Center...</div>;
 
   return (
@@ -85,6 +136,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                     {tab.label}
                   </button>
                 ))}
+                
+                <button
+                  onClick={() => setIsVerified(false)}
+                  className="w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-bold text-red-500 hover:bg-red-500/10 transition-all mt-10 border border-transparent hover:border-red-500/20"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                  Lock Panel
+                </button>
              </nav>
           </div>
         </aside>
@@ -111,7 +170,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           {activeTab === 'overview' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="glass dark:bg-white/5 border border-white/10 p-10 rounded-[3rem] text-center">
-                 <h2 className="text-3xl font-extrabold dark:text-white mb-4">Welcome back, {user?.full_name}</h2>
+                 <h2 className="text-3xl font-extrabold dark:text-white mb-4">Command Center Active</h2>
                  <p className="text-slate-400 max-w-lg mx-auto mb-8">The market is active today. You have {inquiries.length} inquiries to respond to and {properties.length} live listings.</p>
                  <button className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold shadow-xl shadow-blue-500/30">Generate Market Report (AI)</button>
               </div>
@@ -135,7 +194,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                        <div className="text-right">
                           <div className="font-bold text-blue-500">${p.price.toLocaleString()}</div>
                           <button 
-                            onClick={() => firebaseService.deleteProperty(p.id)}
+                            onClick={() => {
+                              if(window.confirm("Delete this listing?")) firebaseService.deleteProperty(p.id)
+                            }}
                             className="text-xs text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                           >Delete</button>
                        </div>
