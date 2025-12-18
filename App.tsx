@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './services/firebase';
@@ -16,11 +16,21 @@ import { Dashboard } from './pages/Dashboard';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { Theme, User, SiteSettings } from './types';
 
+const DEFAULT_SETTINGS: SiteSettings = {
+  brandName: "HomeQuest",
+  heroTitle: "Find the Perfect Place to Call Home",
+  heroSubtitle: "Browse premium properties in the world's most desirable locations. Luxury living tailored to you.",
+  primaryColor: "#2563eb",
+  contactEmail: "hello@homequest.realty",
+  footerText: "Redefining real estate with technology and trust."
+};
+
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>(Theme.LIGHT);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>(DEFAULT_SETTINGS);
+  const hasAttemptedInit = useRef(false);
 
   useEffect(() => {
     // Persistent theme
@@ -30,50 +40,48 @@ const App: React.FC = () => {
       document.documentElement.classList.toggle('dark', savedTheme === Theme.DARK);
     }
 
-    // Initialize Site Settings
-    const initSettings = async () => {
-      const settings = await firebaseService.getSettings();
-      if (!settings) {
-        // First-time setup default settings
-        const defaults: SiteSettings = {
-          brandName: "HomeQuest",
-          heroTitle: "Find the Perfect Place to Call Home",
-          heroSubtitle: "Browse premium properties in the world's most desirable locations. Luxury living tailored to you.",
-          primaryColor: "#2563eb",
-          contactEmail: "hello@homequest.realty",
-          footerText: "Redefining real estate with technology and trust."
-        };
-        await firebaseService.updateSettings(defaults);
-        setSiteSettings(defaults);
-      } else {
-        setSiteSettings(settings);
-      }
-    };
-    initSettings();
-
-    // Subscribe to settings for real-time brand updates
-    const unsubSettings = firebaseService.subscribeToSettings(setSiteSettings);
+    // Subscribe to settings for real-time updates (if rules allow)
+    const unsubSettings = firebaseService.subscribeToSettings((updated) => {
+      if (updated) setSiteSettings(updated);
+    });
 
     // Firebase Auth Listener
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      let currentUser: User | null = null;
+      
       if (firebaseUser) {
-        // In this implementation, the first user or specific emails could be admin.
-        // For demonstration, we'll mark all logged in users as admins if they match a pattern or just assign it.
-        // In production, roles are usually handled via Firestore user document or Custom Claims.
-        setUser({
+        currentUser = {
           id: firebaseUser.uid,
           email: firebaseUser.email || '',
           full_name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-          role: firebaseUser.email === 'admin@homequest.com' ? 'admin' : 'seller' // Demo logic
-        });
+          role: firebaseUser.email === 'admin@homequest.com' ? 'admin' : 'seller'
+        };
+        setUser(currentUser);
       } else {
         setUser(null);
       }
+
+      // Initialize/Sync Site Settings once we know auth state
+      if (!hasAttemptedInit.current) {
+        hasAttemptedInit.current = true;
+        try {
+          const settings = await firebaseService.getSettings();
+          if (settings) {
+            setSiteSettings(settings);
+          } else if (currentUser?.role === 'admin') {
+            // Only seed the database if the user is the master admin
+            await firebaseService.updateSettings(DEFAULT_SETTINGS);
+          }
+        } catch (err) {
+          // Fail silently and use DEFAULT_SETTINGS
+        }
+      }
+
       setLoading(false);
     });
 
     return () => {
-      unsubscribe();
+      unsubscribeAuth();
       unsubSettings();
     };
   }, []);
@@ -96,7 +104,10 @@ const App: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-slate-500 font-medium animate-pulse">Establishing Secure Session...</p>
+        </div>
       </div>
     );
   }
@@ -125,7 +136,7 @@ const App: React.FC = () => {
             />
             <Route 
               path="/admin" 
-              element={<AdminDashboard user={user} />} 
+              element={user?.role === 'admin' ? <AdminDashboard user={user} /> : <Navigate to="/" />} 
             />
           </Routes>
         </main>

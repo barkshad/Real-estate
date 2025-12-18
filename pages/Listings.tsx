@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { firebaseService } from '../services/firebaseService';
 import { PropertyCard } from '../components/PropertyCard';
 import { FilterOptions, Property } from '../types';
+import { MOCK_PROPERTIES } from '../constants';
 
 export const Listings: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -21,7 +22,12 @@ export const Listings: React.FC = () => {
   useEffect(() => {
     // Real-time listener
     const unsubscribe = firebaseService.subscribeToListings((data) => {
-      setProperties(data);
+      // If Firestore is empty (or permissions denied), fallback to mock data
+      if (data.length === 0) {
+        setProperties(MOCK_PROPERTIES);
+      } else {
+        setProperties(data);
+      }
       setLoading(false);
     });
     return () => unsubscribe();
