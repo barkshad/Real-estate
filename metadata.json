@@ -1,0 +1,8 @@
+{
+  "name": "Copy of HomeQuest Realty",
+  "description": "A premium real estate platform featuring property listings, intelligent AI assistance, and professional buying/selling services.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
