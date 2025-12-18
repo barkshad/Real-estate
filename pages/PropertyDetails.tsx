@@ -3,18 +3,57 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { MOCK_PROPERTIES, ICONS } from '../constants';
 import { Property } from '../types';
+import { firebaseService } from '../services/firebaseService';
 
 export const PropertyDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [property, setProperty] = useState<Property | null>(null);
+  const [loading, setLoading] = useState(true);
   const [activeImage, setActiveImage] = useState(0);
 
   useEffect(() => {
-    const found = MOCK_PROPERTIES.find(p => p.id === id);
-    if (found) setProperty(found);
+    const fetchProperty = async () => {
+      if (!id) return;
+      
+      setLoading(true);
+      // First check mock data for default properties
+      const mockFound = MOCK_PROPERTIES.find(p => p.id === id);
+      if (mockFound) {
+        setProperty(mockFound);
+        setLoading(false);
+        return;
+      }
+
+      // If not in mock, fetch from Firebase
+      try {
+        const firestoreFound = await firebaseService.getProperty(id);
+        if (firestoreFound) {
+          setProperty(firestoreFound);
+        }
+      } catch (error) {
+        console.error("Error fetching property:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProperty();
   }, [id]);
 
-  if (!property) return <div className="p-20 text-center dark:text-white">Property not found...</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!property) return (
+    <div className="p-20 text-center dark:text-white">
+      <h2 className="text-2xl font-bold mb-4">Property not found</h2>
+      <Link to="/listings" className="text-blue-600 hover:underline">Return to listings</Link>
+    </div>
+  );
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -27,20 +66,22 @@ export const PropertyDetails: React.FC = () => {
         <div className="lg:col-span-2 space-y-8">
           {/* Gallery */}
           <div className="space-y-4">
-            <div className="h-[500px] rounded-3xl overflow-hidden shadow-lg">
+            <div className="h-[500px] rounded-3xl overflow-hidden shadow-lg bg-slate-100 dark:bg-slate-900">
               <img src={property.images[activeImage]} alt={property.title} className="w-full h-full object-cover" />
             </div>
-            <div className="flex gap-4 overflow-x-auto pb-2">
-              {property.images.map((img, i) => (
-                <button 
-                  key={i} 
-                  onClick={() => setActiveImage(i)}
-                  className={`w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden border-2 transition-all ${activeImage === i ? 'border-blue-600' : 'border-transparent'}`}
-                >
-                  <img src={img} alt="Thumbnail" className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
+            {property.images.length > 1 && (
+              <div className="flex gap-4 overflow-x-auto pb-2">
+                {property.images.map((img, i) => (
+                  <button 
+                    key={i} 
+                    onClick={() => setActiveImage(i)}
+                    className={`w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden border-2 transition-all ${activeImage === i ? 'border-blue-600' : 'border-transparent'}`}
+                  >
+                    <img src={img} alt="Thumbnail" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Info */}
@@ -55,7 +96,7 @@ export const PropertyDetails: React.FC = () => {
               </div>
               <div className="text-right">
                 <div className="text-3xl font-bold text-blue-600">${property.price.toLocaleString()}</div>
-                <div className="text-slate-400 text-sm font-medium">Est. Mortgage: $5,240/mo</div>
+                <div className="text-slate-400 text-sm font-medium">Est. Mortgage: ${(property.price * 0.005).toLocaleString(undefined, {maximumFractionDigits: 0})}/mo</div>
               </div>
             </div>
 
@@ -112,12 +153,6 @@ export const PropertyDetails: React.FC = () => {
                 className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30"
               >
                 Schedule a Visit
-              </button>
-              <button 
-                type="button"
-                className="w-full bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold py-4 rounded-xl hover:bg-slate-200 transition-all"
-              >
-                Inquire via Chat
               </button>
             </form>
             <div className="mt-8 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl flex items-center gap-4">

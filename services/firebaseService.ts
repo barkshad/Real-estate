@@ -1,3 +1,4 @@
+
 import { 
   collection, 
   addDoc, 
@@ -5,7 +6,9 @@ import {
   onSnapshot, 
   orderBy, 
   doc, 
-  getDoc 
+  getDoc,
+  where,
+  deleteDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { Property } from '../types';
@@ -14,7 +17,7 @@ const PROPERTIES_COLLECTION = 'properties';
 
 export const firebaseService = {
   /**
-   * Listen to real-time property listings
+   * Listen to all real-time property listings
    */
   subscribeToListings: (callback: (properties: Property[]) => void) => {
     const q = query(collection(db, PROPERTIES_COLLECTION), orderBy('createdAt', 'desc'));
@@ -28,15 +31,40 @@ export const firebaseService = {
   },
 
   /**
+   * Listen to real-time property listings for a specific user
+   */
+  subscribeToUserListings: (userId: string, callback: (properties: Property[]) => void) => {
+    const q = query(
+      collection(db, PROPERTIES_COLLECTION), 
+      where('owner_id', '==', userId),
+      orderBy('createdAt', 'desc')
+    );
+    return onSnapshot(q, (snapshot) => {
+      const properties = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Property[];
+      callback(properties);
+    });
+  },
+
+  /**
    * Create a new property listing
    */
-  // Fix: Omit 'status' from input type because the function sets it to 'for_sale' internally, resolving the TS error in BuySell.tsx
   addProperty: async (propertyData: Omit<Property, 'id' | 'createdAt' | 'status'>) => {
     return await addDoc(collection(db, PROPERTIES_COLLECTION), {
       ...propertyData,
       createdAt: new Date().toISOString(),
       status: 'for_sale'
     });
+  },
+
+  /**
+   * Delete a property listing
+   */
+  deleteProperty: async (id: string) => {
+    const docRef = doc(db, PROPERTIES_COLLECTION, id);
+    return await deleteDoc(docRef);
   },
 
   /**

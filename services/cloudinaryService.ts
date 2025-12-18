@@ -1,11 +1,10 @@
 
 /**
  * Uploads a file to Cloudinary using an unsigned preset.
- * Requires a Cloudinary Cloud Name and an Unsigned Upload Preset.
  */
 export async function uploadToCloudinary(file: File): Promise<string> {
-  const cloudName = "YOUR_CLOUDINARY_CLOUD_NAME"; // Replace with yours
-  const uploadPreset = "YOUR_UNSIGNED_PRESET";   // Replace with yours
+  const cloudName = "ds2mbrzcn"; 
+  const uploadPreset = "real_unsigned"; 
   
   const formData = new FormData();
   formData.append('file', file);
@@ -24,7 +23,9 @@ export async function uploadToCloudinary(file: File): Promise<string> {
     );
     
     if (!response.ok) {
-      throw new Error('Cloudinary upload failed');
+      const errorData = await response.json();
+      console.error("Cloudinary error details:", errorData);
+      throw new Error(errorData.error?.message || 'Cloudinary upload failed');
     }
     
     const data = await response.json();
