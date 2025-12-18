@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './services/firebase';
+import { firebaseService } from './services/firebaseService';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { GeminiAssistant } from './components/GeminiAssistant';
@@ -12,12 +13,14 @@ import { PropertyDetails } from './pages/PropertyDetails';
 import { BuyPage, SellPage } from './pages/BuySell';
 import { Auth } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
-import { Theme, User } from './types';
+import { AdminDashboard } from './pages/AdminDashboard';
+import { Theme, User, SiteSettings } from './types';
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>(Theme.LIGHT);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
 
   useEffect(() => {
     // Persistent theme
@@ -27,14 +30,41 @@ const App: React.FC = () => {
       document.documentElement.classList.toggle('dark', savedTheme === Theme.DARK);
     }
 
+    // Initialize Site Settings
+    const initSettings = async () => {
+      const settings = await firebaseService.getSettings();
+      if (!settings) {
+        // First-time setup default settings
+        const defaults: SiteSettings = {
+          brandName: "HomeQuest",
+          heroTitle: "Find the Perfect Place to Call Home",
+          heroSubtitle: "Browse premium properties in the world's most desirable locations. Luxury living tailored to you.",
+          primaryColor: "#2563eb",
+          contactEmail: "hello@homequest.realty",
+          footerText: "Redefining real estate with technology and trust."
+        };
+        await firebaseService.updateSettings(defaults);
+        setSiteSettings(defaults);
+      } else {
+        setSiteSettings(settings);
+      }
+    };
+    initSettings();
+
+    // Subscribe to settings for real-time brand updates
+    const unsubSettings = firebaseService.subscribeToSettings(setSiteSettings);
+
     // Firebase Auth Listener
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
+        // In this implementation, the first user or specific emails could be admin.
+        // For demonstration, we'll mark all logged in users as admins if they match a pattern or just assign it.
+        // In production, roles are usually handled via Firestore user document or Custom Claims.
         setUser({
           id: firebaseUser.uid,
           email: firebaseUser.email || '',
           full_name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-          role: 'buyer' // Default role
+          role: firebaseUser.email === 'admin@homequest.com' ? 'admin' : 'seller' // Demo logic
         });
       } else {
         setUser(null);
@@ -42,7 +72,10 @@ const App: React.FC = () => {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubSettings();
+    };
   }, []);
 
   const toggleTheme = () => {
@@ -89,6 +122,10 @@ const App: React.FC = () => {
             <Route 
               path="/dashboard" 
               element={user ? <Dashboard user={user} /> : <Navigate to="/login" />} 
+            />
+            <Route 
+              path="/admin" 
+              element={<AdminDashboard user={user} />} 
             />
           </Routes>
         </main>

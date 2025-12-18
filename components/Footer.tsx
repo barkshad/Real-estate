@@ -56,7 +56,10 @@ export const Footer: React.FC = () => {
         </div>
         
         <div className="pt-10 border-t border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-slate-500">
-           <p>© 2024 HomeQuest Realty Inc. All rights reserved.</p>
+           <div className="flex flex-col md:flex-row items-center gap-4">
+              <p>© 2024 HomeQuest Realty Inc.</p>
+              <Link to="/admin" className="text-slate-300 dark:text-slate-700 hover:text-blue-600 transition-colors text-xs font-medium uppercase tracking-widest">Admin · Content Manager</Link>
+           </div>
            <div className="flex gap-8">
               <a href="#" className="hover:text-blue-600">Privacy Policy</a>
               <a href="#" className="hover:text-blue-600">Terms of Service</a>

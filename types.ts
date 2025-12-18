@@ -25,10 +25,21 @@ export interface User {
 export interface Inquiry {
   id: string;
   property_id: string;
-  user_id: string;
+  property_title?: string;
+  user_email: string;
+  user_name: string;
   message: string;
   status: 'pending' | 'responded';
   created_at: string;
+}
+
+export interface SiteSettings {
+  brandName: string;
+  heroTitle: string;
+  heroSubtitle: string;
+  primaryColor: string;
+  contactEmail: string;
+  footerText: string;
 }
 
 export enum Theme {
